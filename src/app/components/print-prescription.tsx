@@ -76,7 +76,7 @@ export function PrintPrescription({
       {/* Official prescription header */}
       <div className="border-b-4 border-[#0F4C81] pb-4 mb-6">
         <div className="flex items-center justify-center gap-3 mb-4">
-          <img src="/doz3-logo.png" alt="DOZ3" className="w-10 h-10 object-contain" />
+          <img src={`${import.meta.env.BASE_URL}doz3-logo.png`} alt="DOZ3" className="w-10 h-10 object-contain" />
           <h1 className="text-3xl font-bold text-[#0F4C81] tracking-tight">
             DOZ3 Digital Health
           </h1>

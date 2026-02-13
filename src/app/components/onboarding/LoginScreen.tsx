@@ -39,7 +39,7 @@ export function LoginScreen() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#0F4C81] to-[#1a6bb5] flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-200 p-1.5">
-            <img src="/doz3-logo.png" alt="DOZ3" className="w-10 h-10 object-contain brightness-0 invert" />
+            <img src={`${import.meta.env.BASE_URL}doz3-logo.png`} alt="DOZ3" className="w-10 h-10 object-contain brightness-0 invert" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Welcome to DOZ3</h1>
           <p className="text-sm text-muted-foreground mt-1">Doctor Portal</p>

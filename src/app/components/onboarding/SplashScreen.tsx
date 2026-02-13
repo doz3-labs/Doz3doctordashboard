@@ -17,7 +17,7 @@ export function SplashScreen() {
       <div className="relative z-10 flex flex-col items-center text-center max-w-md">
         {/* Logo */}
         <div className="w-20 h-20 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center mb-8 shadow-2xl border border-white/20 p-2">
-          <img src="/doz3-logo.png" alt="DOZ3" className="w-14 h-14 object-contain brightness-0 invert" />
+          <img src={`${import.meta.env.BASE_URL}doz3-logo.png`} alt="DOZ3" className="w-14 h-14 object-contain brightness-0 invert" />
         </div>
 
         {/* Title */}

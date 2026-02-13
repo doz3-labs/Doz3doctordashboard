@@ -118,7 +118,7 @@ function DoctorDashboard() {
             onClick={() => { handleSidebarClick("dashboard", "dashboard"); }}
           >
             <div className="flex items-center gap-2.5">
-              <img src="/doz3-logo.png" alt="DOZ3" className="w-9 h-9 object-contain" />
+              <img src={`${import.meta.env.BASE_URL}doz3-logo.png`} alt="DOZ3" className="w-9 h-9 object-contain" />
               <div>
                 <h1 className="text-primary font-bold text-lg leading-tight">DOZ3</h1>
                 <p className="text-[10px] text-muted-foreground leading-tight">Doctor Portal</p>
