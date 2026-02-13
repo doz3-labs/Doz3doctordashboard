@@ -1,0 +1,24 @@
+/* Print-specific styles: hide UI, show only prescription (.print-only) */
+
+@media print {
+  /* Hide sidebar, buttons, and any element marked no-print in print view */
+  .no-print,
+  aside,
+  nav,
+  button,
+  [role="button"] {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Prescription content is shown via PrintPrescription's inline styles (body * hidden, .print-only visible) */
+  .print-only {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 0.75cm;
+  }
+}
