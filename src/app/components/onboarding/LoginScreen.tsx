@@ -1,14 +1,15 @@
 import { useState } from "react";
-import { ArrowLeft, Phone, Shield } from "lucide-react";
+import { ArrowLeft, Phone, Shield, Loader2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { useAuth } from "../../context/AuthContext";
 
 export function LoginScreen() {
-  const { onboardingStep, login, verifyOtp, skipToApp } = useAuth();
+  const { onboardingStep, login, verifyOtp, skipToApp, loginError } = useAuth();
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSendOtp = () => {
     if (phone.length < 10) {
@@ -19,15 +20,22 @@ export function LoginScreen() {
     login(phone);
   };
 
-  const handleVerifyOtp = () => {
+  const handleVerifyOtp = async () => {
     if (otp.length !== 6) {
       setError("Please enter a valid 6-digit OTP");
       return;
     }
     setError("");
-    const success = verifyOtp(otp);
-    if (!success) {
-      setError("Invalid OTP. Please try again.");
+    setLoading(true);
+    try {
+      const success = await verifyOtp(otp);
+      if (!success) {
+        setError(loginError || "Invalid OTP. Please try again.");
+      }
+    } catch {
+      setError("Connection failed. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -36,7 +44,6 @@ export function LoginScreen() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Header */}
         <div className="text-center mb-8">
           <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#0F4C81] to-[#1a6bb5] flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-200 p-1.5">
             <img src={`${import.meta.env.BASE_URL}doz3-logo.png`} alt="DOZ3" className="w-10 h-10 object-contain brightness-0 invert" />
@@ -45,11 +52,9 @@ export function LoginScreen() {
           <p className="text-sm text-muted-foreground mt-1">Doctor Portal</p>
         </div>
 
-        {/* Card */}
         <div className="bg-white rounded-2xl shadow-xl shadow-black/5 border border-border/60 p-6 sm:p-8">
           {!isOtpStep ? (
             <>
-              {/* Phone Input */}
               <div className="mb-6">
                 <label className="block text-sm font-semibold text-foreground mb-2">
                   Phone Number
@@ -77,9 +82,7 @@ export function LoginScreen() {
                 </p>
               </div>
 
-              {error && (
-                <p className="text-sm text-destructive mb-4">{error}</p>
-              )}
+              {error && <p className="text-sm text-destructive mb-4">{error}</p>}
 
               <Button
                 onClick={handleSendOtp}
@@ -91,7 +94,6 @@ export function LoginScreen() {
             </>
           ) : (
             <>
-              {/* OTP Input */}
               <button
                 onClick={() => login("")}
                 className="flex items-center gap-1.5 text-xl text-muted-foreground hover:text-foreground mb-4 transition-colors"
@@ -126,7 +128,6 @@ export function LoginScreen() {
                       newOtp[i] = val;
                       setOtp(newOtp.join("").slice(0, 6));
                       setError("");
-                      // Auto-focus next input
                       if (val && i < 5) {
                         const next = e.target.nextElementSibling as HTMLInputElement;
                         next?.focus();
@@ -143,16 +144,21 @@ export function LoginScreen() {
                 ))}
               </div>
 
-              {error && (
-                <p className="text-sm text-destructive mb-4 text-center">{error}</p>
-              )}
+              {error && <p className="text-sm text-destructive mb-4 text-center">{error}</p>}
 
               <Button
                 onClick={handleVerifyOtp}
                 className="w-full bg-[#0F4C81] hover:bg-[#0d3f6b] text-white py-6 text-base font-semibold rounded-xl"
-                disabled={otp.length !== 6}
+                disabled={otp.length !== 6 || loading}
               >
-                Verify & Continue
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Verifying...
+                  </span>
+                ) : (
+                  "Verify & Continue"
+                )}
               </Button>
 
               <button className="w-full text-center text-sm text-[#0F4C81] hover:underline mt-4">
@@ -162,7 +168,6 @@ export function LoginScreen() {
           )}
         </div>
 
-        {/* Skip */}
         <div className="text-center mt-6">
           <button
             onClick={skipToApp}

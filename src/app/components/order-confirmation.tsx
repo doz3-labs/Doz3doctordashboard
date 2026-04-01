@@ -7,6 +7,7 @@ import type { PrescriptionData } from "../types/prescription";
 const DEFAULT_ORDER = {
   orderAmount: 450,
   patientName: "Rajesh Kumar",
+  durationDays: 30,
 } as const;
 
 interface OrderConfirmationProps {
@@ -25,10 +26,11 @@ export function OrderConfirmation({ onReturnToDashboard, onNavigate, prescriptio
     patientHistory: "Hypertension, Type 2 Diabetes",
     symptoms: "Uncontrolled sugar levels, dizziness",
     medications: [
-      { drug: "Glimepiride", dosage: "1mg", morning: 1, afternoon: 0, night: 0 },
-      { drug: "Metformin", dosage: "500mg", morning: 1, afternoon: 0, night: 1 },
+      { drug: "Glimepiride", dosage: "1mg", formFactor: "Tablet", morning: 1, afternoon: 0, night: 0 },
+      { drug: "Metformin", dosage: "500mg", formFactor: "Tablet", morning: 1, afternoon: 0, night: 1 },
     ],
     orderAmount: DEFAULT_ORDER.orderAmount,
+      durationDays: DEFAULT_ORDER.durationDays,
   };
   const patientName = data.patientName;
   const orderAmount = data.orderAmount;

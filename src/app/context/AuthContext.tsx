@@ -1,29 +1,26 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 import type { DoctorProfile, AuthState } from "../types/doctor";
 import { DEFAULT_DOCTOR_PROFILE } from "../types/doctor";
+import { loginDoctor, logoutDoctor, getToken, setToken } from "../lib/api";
 
 interface AuthContextType extends AuthState {
   login: (phone: string) => void;
-  verifyOtp: (otp: string) => boolean;
+  verifyOtp: (otp: string) => Promise<boolean>;
   completeProfile: (profile: DoctorProfile) => void;
   completeOnboarding: () => void;
   logout: () => void;
   updateProfile: (updates: Partial<DoctorProfile>) => void;
   skipToApp: () => void;
+  doctorId: string | null;
+  loginError: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const STORAGE_KEY = "doz3_doctor_auth";
-
-/**
- * DEMO MODE: Onboarding is disabled for YC demo.
- * To re-enable onboarding, change DEMO_MODE to false.
- */
-const DEMO_MODE = true;
+const DEMO_MODE = false;
 
 function loadPersistedAuth(): AuthState {
-  // In demo mode, always start authenticated with default profile
   if (DEMO_MODE) {
     return {
       isAuthenticated: true,
@@ -36,11 +33,11 @@ function loadPersistedAuth(): AuthState {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      if (parsed.isAuthenticated && getToken()) return parsed;
     }
-  } catch {
-    // ignore
-  }
+  } catch { /* ignore */ }
+
   return {
     isAuthenticated: false,
     isOnboardingComplete: false,
@@ -50,15 +47,17 @@ function loadPersistedAuth(): AuthState {
 }
 
 function persistAuth(state: AuthState) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // ignore
-  }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  catch { /* ignore */ }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>(loadPersistedAuth);
+  const [pendingPhone, setPendingPhone] = useState("");
+  const [doctorId, setDoctorId] = useState<string | null>(() => {
+    try { return localStorage.getItem("doz3_doctor_id"); } catch { return null; }
+  });
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   const updateState = useCallback((updates: Partial<AuthState>) => {
     setAuthState((prev) => {
@@ -69,26 +68,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(
-    (_phone: string) => {
-      // LATER: Send OTP via API
+    (phone: string) => {
+      setPendingPhone(phone);
+      setLoginError(null);
       updateState({ onboardingStep: "otp" });
     },
     [updateState]
   );
 
   const verifyOtp = useCallback(
-    (otp: string) => {
-      // LATER: Verify OTP via API. For now accept any 6-digit code.
-      if (otp.length === 6) {
+    async (otp: string): Promise<boolean> => {
+      if (otp.length !== 6) return false;
+      setLoginError(null);
+
+      try {
+        const resp = await loginDoctor(pendingPhone, otp);
+        setDoctorId(resp.user_id);
+        try { localStorage.setItem("doz3_doctor_id", resp.user_id); } catch { /* */ }
+
+        const profile: DoctorProfile = {
+          ...DEFAULT_DOCTOR_PROFILE,
+          id: resp.user_id,
+          fullName: resp.name || DEFAULT_DOCTOR_PROFILE.fullName,
+          phone: `+91 ${pendingPhone}`,
+        };
+
         updateState({
           isAuthenticated: true,
+          doctor: profile,
           onboardingStep: "profile-setup",
         });
         return true;
+      } catch (err) {
+        setLoginError(err instanceof Error ? err.message : "Login failed");
+        return false;
       }
-      return false;
     },
-    [updateState]
+    [updateState, pendingPhone]
   );
 
   const completeProfile = useCallback(
@@ -107,23 +123,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [updateState]);
 
   const logout = useCallback(() => {
+    logoutDoctor();
     localStorage.removeItem(STORAGE_KEY);
-    if (DEMO_MODE) {
-      // In demo mode, logout just resets to default profile
-      setAuthState({
-        isAuthenticated: true,
-        isOnboardingComplete: true,
-        doctor: DEFAULT_DOCTOR_PROFILE,
-        onboardingStep: "complete",
-      });
-    } else {
-      setAuthState({
-        isAuthenticated: false,
-        isOnboardingComplete: false,
-        doctor: null,
-        onboardingStep: "splash",
-      });
-    }
+    localStorage.removeItem("doz3_doctor_id");
+    setDoctorId(null);
+    setAuthState({
+      isAuthenticated: false,
+      isOnboardingComplete: false,
+      doctor: null,
+      onboardingStep: "splash",
+    });
   }, []);
 
   const updateProfile = useCallback(
@@ -140,8 +149,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  /** Dev shortcut: skip onboarding with default profile */
   const skipToApp = useCallback(() => {
+    setToken("demo-token");
+    setDoctorId("DOC-DEMO-001");
+    try { localStorage.setItem("doz3_doctor_id", "DOC-DEMO-001"); } catch { /* */ }
     const state: AuthState = {
       isAuthenticated: true,
       isOnboardingComplete: true,
@@ -163,6 +174,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         updateProfile,
         skipToApp,
+        doctorId,
+        loginError,
       }}
     >
       {children}

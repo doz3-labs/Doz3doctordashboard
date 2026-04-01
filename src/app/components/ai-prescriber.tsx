@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ArrowLeft, Sparkles, Printer, X, Search, Plus, Trash2, Check, RefreshCw } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { ArrowLeft, Sparkles, Printer, X, Search, Plus, Trash2, Check, RefreshCw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
@@ -7,6 +7,7 @@ import { Badge } from "./ui/badge";
 import { DosageRoller } from "./dosage-roller";
 import { PrintPrescription } from "./print-prescription";
 import type { SelectedPatientData } from "./patient-profile";
+import { searchMedications, type MedicationAPI } from "../lib/api";
 
 interface DrugSuggestion {
   drug: string;
@@ -255,9 +256,10 @@ interface AIPrescriberProps {
     patientWeight: number;
     patientHistory: string;
     symptoms: string;
-    medications: Array<{ drug: string; dosage: string; morning: number; afternoon: number; night: number }>;
+    medications: Array<{ drug: string; dosage: string; formFactor: string; morning: number; afternoon: number; night: number }>;
     additionalInstructions?: string;
     orderAmount: number;
+    durationDays: number;
   }) => void;
   onNavigate: (screen: "dashboard" | "patient-profile" | "ai-prescriber" | "confirmation") => void;
   hideSidebar?: boolean;
@@ -281,6 +283,8 @@ export function AIPrescriber({ patient, onBack, onConfirm, onNavigate, hideSideb
     patientSuggestions.map((s) => ({ morning: s.morning, afternoon: s.afternoon, night: s.night }))
   );
   const [additionalInstructions, setAdditionalInstructions] = useState("");
+  // AI-suggested default duration (doctor can override this single value for the whole prescription).
+  const [durationDays, setDurationDays] = useState<number>(30);
   const [showMedicineModal, setShowMedicineModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -381,14 +385,40 @@ export function AIPrescriber({ patient, onBack, onConfirm, onNavigate, hideSideb
     setAiSnapshots(newSnaps);
   };
 
-  const categories = ["All", ...Array.from(new Set(medicineDatabase.map(m => m.category)))];
+  const [apiMedicines, setApiMedicines] = useState<MedicationAPI[]>([]);
+  const [loadingMeds, setLoadingMeds] = useState(false);
+  const searchDebounce = useRef<ReturnType<typeof setTimeout>>();
 
-  const filteredMedicines = medicineDatabase.filter(med => {
-    const matchesSearch = med.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         med.dosage.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === "All" || med.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const fetchMedsFromBackend = useCallback(async (q: string) => {
+    setLoadingMeds(true);
+    try {
+      const results = await searchMedications(q || undefined, undefined, undefined, 50, 0);
+      setApiMedicines(results);
+    } catch {
+      setApiMedicines([]);
+    } finally {
+      setLoadingMeds(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!showMedicineModal) return;
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(() => fetchMedsFromBackend(searchQuery), 250);
+    return () => { if (searchDebounce.current) clearTimeout(searchDebounce.current); };
+  }, [searchQuery, showMedicineModal, fetchMedsFromBackend]);
+
+  const filteredMedicines = apiMedicines.length > 0
+    ? apiMedicines.map((m) => ({
+        name: m.name,
+        dosage: m.dosage,
+        category: m.drug_schedule === "OTC" ? "OTC" : m.form_factor,
+        form_factor: m.form_factor,
+        salt: m.salt_composition,
+      }))
+    : medicineDatabase.map((m) => ({ ...m, form_factor: getMedicationType(m.name), salt: null }));
+
+  const categories = ["All", ...Array.from(new Set(filteredMedicines.map((m) => m.category)))];
 
   const handlePrint = () => {
     window.print();
@@ -581,6 +611,28 @@ export function AIPrescriber({ patient, onBack, onConfirm, onNavigate, hideSideb
               </div>
             </Card>
 
+            {/* Duration Override (single value for whole prescription) */}
+            <Card className="mt-6 border border-border shadow-sm">
+              <div className="p-6">
+                <label className="block text-sm font-medium text-foreground mb-3">
+                  Duration (Doctor override)
+                </label>
+                <div className="flex items-center gap-3">
+                  <select
+                    className="flex-1 px-4 py-3 border border-border rounded-lg bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    value={durationDays}
+                    onChange={(e) => setDurationDays(Number(e.target.value))}
+                  >
+                    <option value={15}>15 days</option>
+                    <option value={30}>30 days</option>
+                    <option value={45}>45 days</option>
+                    <option value={60}>60 days</option>
+                  </select>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">Default: AI suggestion</span>
+                </div>
+              </div>
+            </Card>
+
             {/* Action Button */}
             <div className="mt-8 flex justify-end">
               <Button
@@ -604,12 +656,14 @@ export function AIPrescriber({ patient, onBack, onConfirm, onNavigate, hideSideb
                     medications: validMeds.map((s) => ({
                       drug: s.drug,
                       dosage: s.dosage,
+                      formFactor: s.type,
                       morning: s.morning,
                       afternoon: s.afternoon,
                       night: s.night,
                     })),
                     additionalInstructions,
                     orderAmount: 450,
+                    durationDays,
                   });
                 }
                 }
@@ -680,9 +734,10 @@ export function AIPrescriber({ patient, onBack, onConfirm, onNavigate, hideSideb
             {/* Medicine List */}
             <div className="flex-1 overflow-y-auto p-6">
               <p className="text-xs text-muted-foreground mb-4">
-                Found {filteredMedicines.length} medication(s) 
-                {selectedCategory !== "All" && ` in ${selectedCategory} category`}
+                {loadingMeds ? "Searching..." : `Found ${filteredMedicines.length} medication(s)`}
+                {selectedCategory !== "All" && ` in ${selectedCategory}`}
                 {selectedMedicines.length > 0 && ` • ${selectedMedicines.length} selected`}
+                {apiMedicines.length > 0 && " (from DOZ3 database)"}
               </p>
               <div className="space-y-2">
                 {filteredMedicines.length === 0 ? (
@@ -712,15 +767,18 @@ export function AIPrescriber({ patient, onBack, onConfirm, onNavigate, hideSideb
                         >
                           {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
                         </div>
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <h4 className="text-base font-semibold text-foreground">{med.name}</h4>
                             <span className="text-xs bg-muted px-2 py-1 rounded text-muted-foreground">
                               {med.dosage}
                             </span>
+                            <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200">
+                              {med.form_factor}
+                            </span>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Category: {med.category} • Type: {getMedicationType(med.name)}
+                          <p className="text-xs text-muted-foreground mt-1 truncate">
+                            {med.salt ? `Salt: ${med.salt}` : `Category: ${med.category}`}
                           </p>
                         </div>
                       </div>

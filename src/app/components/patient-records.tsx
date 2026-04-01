@@ -20,23 +20,50 @@ import {
   X,
   ChevronRight,
   UserPlus,
+  Loader2,
+  Cloud,
 } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { PATIENT_RECORDS } from "../data/patientRecords";
 import type { PatientRecord } from "../types/patient";
+import { listPatients, createOrUpsertPatient, type PatientAPI } from "../lib/api";
 
 type View = "list" | "detail";
 
 const STORAGE_KEY = "doz3_patient_records";
+
+function apiToPatientRecord(p: PatientAPI): PatientRecord {
+  return {
+    id: p.id.slice(0, 8).toUpperCase(),
+    name: p.full_name,
+    age: 0,
+    gender: "Other",
+    phone: "—",
+    email: "",
+    weight: 0,
+    height: 0,
+    bloodGroup: "—",
+    allergies: [],
+    medicalConditions: [],
+    address: [p.address_line1, p.address_line2, p.city, p.state, p.pincode].filter(Boolean).join(", "),
+    registeredDate: new Date().toISOString().split("T")[0],
+    lastVisit: "—",
+    status: "Active",
+    vitals: { bloodPressure: "—", bloodSugar: "—", heartRate: "—", temperature: "—", weight: 0, spo2: "—", recordedAt: "" },
+    visits: [],
+    activeMedications: [],
+    _backendId: p.id,
+    _abha: p.abha_address,
+  } as PatientRecord & { _backendId: string; _abha: string };
+}
 
 function loadPersistedPatients(): PatientRecord[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const added: PatientRecord[] = JSON.parse(stored);
-      // Merge: added patients first, then defaults (avoid duplicates by id)
       const defaultIds = new Set(PATIENT_RECORDS.map((p) => p.id));
       const extras = added.filter((p) => !defaultIds.has(p.id));
       return [...extras, ...PATIENT_RECORDS];
@@ -46,7 +73,6 @@ function loadPersistedPatients(): PatientRecord[] {
 }
 
 function persistAddedPatients(patients: PatientRecord[]) {
-  // Only persist patients that are NOT in the default set
   const defaultIds = new Set(PATIENT_RECORDS.map((p) => p.id));
   const added = patients.filter((p) => !defaultIds.has(p.id));
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(added)); } catch { /* ignore */ }
@@ -81,6 +107,25 @@ export function PatientRecords({
   onStartConsultation?: (patient: SelectedPatientData) => void;
 }) {
   const [patients, setPatients] = useState<PatientRecord[]>(loadPersistedPatients);
+  const [backendPatients, setBackendPatients] = useState<PatientRecord[]>([]);
+  const [loadingBackend, setLoadingBackend] = useState(false);
+
+  useEffect(() => {
+    setLoadingBackend(true);
+    listPatients()
+      .then((apiPatients) => {
+        const converted = apiPatients.map(apiToPatientRecord);
+        setBackendPatients(converted);
+      })
+      .catch(() => { /* offline fallback - use local only */ })
+      .finally(() => setLoadingBackend(false));
+  }, []);
+
+  const allPatients = (() => {
+    const localIds = new Set(patients.map((p) => p.name.toLowerCase()));
+    const extras = backendPatients.filter((bp) => !localIds.has(bp.name.toLowerCase()));
+    return [...patients, ...extras];
+  })();
 
   const addPatient = useCallback((newPatient: PatientRecord) => {
     setPatients((prev) => {
@@ -89,14 +134,28 @@ export function PatientRecords({
       return next;
     });
     toast.success(`${newPatient.name} added to patient records`);
+
+    const abhaHandle = newPatient.name
+      .toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 20);
+    createOrUpsertPatient({
+      full_name: newPatient.name,
+      phone_number: newPatient.phone.replace(/[^0-9]/g, "").slice(-10) || "0000000000",
+      address_line1: newPatient.address || "Not provided",
+      city: "Bengaluru",
+      state: "Karnataka",
+      pincode: "560001",
+      country: "India",
+      abha_address: `${abhaHandle.length >= 3 ? abhaHandle : "patient" + Date.now()}@abdm`,
+    }).catch(() => { /* silent - will sync later */ });
   }, []);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [view, setView] = useState<View>("list");
   const [selectedPatient, setSelectedPatient] = useState<PatientRecord | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
 
-  const filtered = patients.filter((p) => {
+  const filtered = allPatients.filter((p) => {
     if (statusFilter !== "All" && p.status !== statusFilter) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -136,7 +195,8 @@ export function PatientRecords({
               Patient Records
             </h2>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {patients.length} registered patients
+              {allPatients.length} registered patients
+              {loadingBackend && <Loader2 className="inline w-3 h-3 ml-1 animate-spin" />}
             </p>
           </div>
           <Button
