@@ -39,9 +39,10 @@ function apiToPatientRecord(p: PatientAPI): PatientRecord {
   return {
     id: p.id.slice(0, 8).toUpperCase(),
     name: p.full_name,
-    age: 0,
-    gender: "Other",
-    phone: "—",
+    // Stays null when no date of birth is recorded; the UI renders "—".
+    age: p.age,
+    gender: p.gender === "Unknown" ? "Other" : (p.gender as PatientRecord["gender"]),
+    phone: p.phone_number || "—",
     email: "",
     weight: 0,
     height: 0,
@@ -81,7 +82,12 @@ function persistAddedPatients(patients: PatientRecord[]) {
 
 /** Convert a PatientRecord to the SelectedPatientData format used by PatientProfile */
 function toSelectedPatient(p: PatientRecord): SelectedPatientData {
+  const withBackend = p as PatientRecord & { _backendId?: string };
   return {
+    // Carried through so prescribing targets this exact patient row.
+    backendId: withBackend._backendId,
+    phone: p.phone && p.phone !== "—" ? p.phone : undefined,
+    address: p.address || undefined,
     name: p.name,
     age: p.age,
     weight: p.weight ?? p.vitals.weight,
@@ -260,7 +266,7 @@ export function PatientRecords({
                         <PatientStatusBadge status={patient.status} />
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {patient.age}y / {patient.gender} &middot; {patient.bloodGroup} &middot; {patient.phone}
+                        {patient.age === null ? "—" : `${patient.age}y`} / {patient.gender} &middot; {patient.bloodGroup} &middot; {patient.phone}
                       </p>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {patient.medicalConditions.map((c, i) => (
@@ -348,7 +354,7 @@ function PatientDetailView({
                     <PatientStatusBadge status={patient.status} />
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {patient.age}y / {patient.gender} &middot; {patient.bloodGroup} &middot; {patient.weight}kg, {patient.height}cm
+                    {patient.age === null ? "—" : `${patient.age}y`} / {patient.gender} &middot; {patient.bloodGroup} &middot; {patient.weight}kg, {patient.height}cm
                   </p>
                 </div>
               </div>

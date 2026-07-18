@@ -252,7 +252,8 @@ interface AIPrescriberProps {
   onBack: () => void;
   onConfirm: (data: {
     patientName: string;
-    patientAge: number;
+    /** null when no date of birth is on file — never substitute a default. */
+    patientAge: number | null;
     patientWeight: number;
     patientHistory: string;
     symptoms: string;
@@ -267,7 +268,11 @@ interface AIPrescriberProps {
 
 export function AIPrescriber({ patient, onBack, onConfirm, onNavigate, hideSidebar }: AIPrescriberProps) {
   const patientName = patient?.name ?? "Rajesh Kumar";
-  const patientAge = patient?.age ?? 58;
+  // No fallback age. This used to default to 58, which meant the screen showed
+  // "Based on <name>'s Age (58)" for patients whose date of birth was never
+  // recorded — fabricated clinical justification. null now means unknown, and
+  // the UI says so instead of inventing a number.
+  const patientAge = patient?.age ?? null;
   const patientWeight = patient?.weight ?? 72;
   const patientHistory = patient?.condition ?? "Hypertension, Type 2 Diabetes";
 
@@ -454,7 +459,7 @@ export function AIPrescriber({ patient, onBack, onConfirm, onNavigate, hideSideb
             <div>
               <h2 className="text-xl text-foreground font-semibold">Patient: {patientName}</h2>
               <p className="text-sm text-muted-foreground">
-                Age: {patientAge} | Weight: {patientWeight}kg | History: {patientHistory}
+                Age: {patientAge ?? "Not recorded"} | Weight: {patientWeight}kg | History: {patientHistory}
               </p>
             </div>
           </div>
@@ -500,10 +505,19 @@ export function AIPrescriber({ patient, onBack, onConfirm, onNavigate, hideSideb
               <div className="p-6">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                   <p className="text-sm text-foreground">
-                    Based on <span className="font-semibold">{patientName.split(" ")[0]}'s Age ({patientAge})</span> and{" "}
-                    <span className="font-semibold">History of {patientHistory}</span>, here is the
-                    recommended dosage:
+                    Carried forward from{" "}
+                    <span className="font-semibold">{patientName.split(" ")[0]}'s active medications</span>
+                    {patientAge !== null ? (
+                      <> (age <span className="font-semibold">{patientAge}</span>)</>
+                    ) : null}
+                    . Review each line before confirming:
                   </p>
+                  {patientAge === null ? (
+                    <p className="text-xs text-amber-700 mt-2">
+                      Date of birth not recorded — age-based checks are unavailable
+                      for this patient.
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="space-y-4">

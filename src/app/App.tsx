@@ -110,17 +110,29 @@ function DoctorDashboard() {
         return padded.length >= 3 ? padded : `patient${Date.now()}`;
       };
 
-      const patient = await createOrUpsertPatient({
-        full_name: data.patientName,
-        phone_number: selectedPatient?.phone?.replace(/[^0-9]/g, "").slice(-10) || "9999999999",
-        address_line1: selectedPatient?.address || "42, 1st Cross, Indiranagar",
-        address_line2: null,
-        city: "Bengaluru",
-        state: "Karnataka",
-        pincode: "560038",
-        country: "India",
-        abha_address: `${makeAbhaHandle(data.patientName)}@abdm`,
-      });
+      // Prefer the real patient row. The upsert below keys on an ABHA handle
+      // derived from the patient's NAME, so two patients called "Rajesh Kumar"
+      // resolve to the same handle and the second prescription would be filed
+      // against the first patient. Only fall back to creating when we genuinely
+      // have no existing record (e.g. the QR / ad-hoc path).
+      const existingPatientId = selectedPatient?.backendId;
+      const createdPatient = existingPatientId
+        ? null
+        : await createOrUpsertPatient({
+            full_name: data.patientName,
+            phone_number:
+              selectedPatient?.phone?.replace(/[^0-9]/g, "").slice(-10) || "9999999999",
+            address_line1: selectedPatient?.address || "42, 1st Cross, Indiranagar",
+            address_line2: null,
+            city: "Bengaluru",
+            state: "Karnataka",
+            pincode: "560038",
+            country: "India",
+            // Suffixed so a shared name cannot collide onto one identity.
+            abha_address: `${makeAbhaHandle(data.patientName)}.${Date.now().toString(36)}@abdm`,
+          });
+
+      const patientId = existingPatientId ?? createdPatient!.id;
 
       const medicationsExisting = await getAllMedications();
 
@@ -151,7 +163,7 @@ function DoctorDashboard() {
       }
 
       const prescription = await createPrescription({
-        patient_id: patient.id,
+        patient_id: patientId,
         abdm_record_id: `abdm-demo-${Date.now()}`,
         valid_until: validUntil,
         duration_days: durationDays,
@@ -159,7 +171,9 @@ function DoctorDashboard() {
         dose_schedules,
       });
 
-      const delivery_address = `${patient.address_line1}, ${patient.city} - ${patient.pincode}`;
+      const delivery_address = createdPatient
+        ? `${createdPatient.address_line1}, ${createdPatient.city} - ${createdPatient.pincode}`
+        : selectedPatient?.address || "Address on file";
       const order = await createOrderFromPrescription(prescription.id, delivery_address);
       await confirmPayment(order.id);
 

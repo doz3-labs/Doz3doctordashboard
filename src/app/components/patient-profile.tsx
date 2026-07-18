@@ -7,8 +7,17 @@ import { toast } from "sonner";
 
 /** Data shape passed from Dashboard/PatientRecords into PatientProfile */
 export interface SelectedPatientData {
+  /** Backend patient UUID when this came from a real record. Present means
+   *  "this patient already exists server-side" — prescribe against this id
+   *  rather than upserting, which is how two patients sharing a name used to
+   *  collide onto one ABHA handle and cross-file each other's prescriptions. */
+  backendId?: string;
+  phone?: string;
+  address?: string;
   name: string;
-  age: number;
+  /** null when no date of birth is on file. Do not substitute a default —
+   *  a made-up age drives age-based dosing checks and gets displayed as fact. */
+  age: number | null;
   weight: number;
   condition: string;
   bloodPressure: string;
@@ -96,7 +105,7 @@ export function PatientProfile({ patient, onBack, onProceedToPrescribe, onNaviga
             <div>
               <h2 className="text-xl text-foreground font-semibold">Patient: {p.name}</h2>
               <p className="text-sm text-muted-foreground">
-                Age: {p.age} | Weight: {p.weight}kg | History: {p.condition}
+                Age: {p.age ?? "Not recorded"} | Weight: {p.weight}kg | History: {p.condition}
               </p>
             </div>
           </div>

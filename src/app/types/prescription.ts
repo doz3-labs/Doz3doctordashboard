@@ -9,7 +9,8 @@ export interface PrescriptionMedication {
 
 export interface PrescriptionData {
   patientName: string;
-  patientAge: number;
+  /** null when no date of birth is on file. */
+  patientAge: number | null;
   patientWeight: number;
   patientHistory: string;
   symptoms: string;

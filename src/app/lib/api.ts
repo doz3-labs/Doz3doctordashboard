@@ -186,9 +186,12 @@ export async function getAllMedications(): Promise<MedicationAPI[]> {
 
 // ── Patient endpoints ──
 
+export type GenderAPI = "Male" | "Female" | "Other" | "Unknown";
+
 export interface PatientAPI {
   id: string;
   full_name: string;
+  phone_number: string | null;
   address_line1: string;
   address_line2: string | null;
   city: string;
@@ -196,6 +199,41 @@ export interface PatientAPI {
   pincode: string;
   country: string;
   abha_address: string;
+  date_of_birth: string | null;
+  gender: GenderAPI;
+  /** Derived server-side from date_of_birth. null = not recorded, NOT zero. */
+  age: number | null;
+}
+
+export interface PatientUpdateBody {
+  full_name?: string;
+  phone_number?: string;
+  date_of_birth?: string | null;
+  gender?: GenderAPI;
+  address_line1?: string;
+  address_line2?: string | null;
+  city?: string;
+  state?: string;
+  pincode?: string;
+}
+
+/** Partial update. Omitted fields are left untouched by the server. */
+export async function updatePatient(
+  patientId: string,
+  body: PatientUpdateBody,
+): Promise<PatientAPI> {
+  const res = await fetchWithRetry(`${API_BASE_URL}/patients/${encodeURIComponent(patientId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = await parseJsonSafe(res);
+    throw new Error(detail?.detail ? JSON.stringify(detail.detail) : `PATCH /patients failed (${res.status})`);
+  }
+  // The patient list is now stale.
+  invalidateCache("/patients");
+  return (await res.json()) as PatientAPI;
 }
 
 export async function listPatients(search?: string): Promise<PatientAPI[]> {

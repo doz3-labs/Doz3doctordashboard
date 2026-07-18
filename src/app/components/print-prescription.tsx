@@ -1,6 +1,6 @@
 interface PrintPrescriptionProps {
   patientName: string;
-  patientAge: number;
+  patientAge: number | null;
   patientWeight: number;
   patientHistory: string;
   symptoms: string;
@@ -115,7 +115,8 @@ export function PrintPrescription({
               <span className="font-semibold">Name:</span> {patientName}
             </p>
             <p>
-              <span className="font-semibold">Age:</span> {patientAge} years
+              <span className="font-semibold">Age:</span>{" "}
+              {patientAge === null ? "Not recorded" : `${patientAge} years`}
             </p>
             <p>
               <span className="font-semibold">Weight:</span> {patientWeight} kg

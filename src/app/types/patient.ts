@@ -6,7 +6,9 @@
 export interface PatientRecord {
   id: string;
   name: string;
-  age: number;
+  /** null when no date of birth is on file. Never render this as 0 — that
+   *  reads as a newborn and would feed age-based dosing rules a false value. */
+  age: number | null;
   gender: "Male" | "Female" | "Other";
   phone: string;
   email: string;
