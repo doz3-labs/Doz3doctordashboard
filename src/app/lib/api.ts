@@ -137,7 +137,8 @@ export interface LoginResponse {
 }
 
 export async function loginDoctor(phone: string, otp: string): Promise<LoginResponse> {
-  const data = await postJson<LoginResponse>("/auth/doctor/login", { phone_number: phone, otp });
+  // The backend's LoginRequest field is `phone` — sending `phone_number` 422s.
+  const data = await postJson<LoginResponse>("/auth/doctor/login", { phone, otp });
   setToken(data.access_token);
   return data;
 }
@@ -198,7 +199,8 @@ export interface PatientAPI {
 }
 
 export async function listPatients(search?: string): Promise<PatientAPI[]> {
-  const qs = search ? `?search=${encodeURIComponent(search)}` : "";
+  // The backend reads `q`; `search` was silently ignored and returned everything.
+  const qs = search ? `?q=${encodeURIComponent(search)}` : "";
   return getJson<PatientAPI[]>(`/patients/${qs}`, DEFAULT_TTL);
 }
 
@@ -250,7 +252,9 @@ export async function createPrescription(data: {
 }
 
 export async function getPatientPrescriptions(patientId: string): Promise<PrescriptionAPI[]> {
-  return getJson<PrescriptionAPI[]>(`/prescriptions/patient/${patientId}`, DEFAULT_TTL);
+  // The backend filters via a query param; there is no /prescriptions/patient/{id} route.
+  const qs = `?patient_id=${encodeURIComponent(patientId)}`;
+  return getJson<PrescriptionAPI[]>(`/prescriptions/${qs}`, DEFAULT_TTL);
 }
 
 // ── Order endpoints ──
