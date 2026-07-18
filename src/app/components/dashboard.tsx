@@ -379,7 +379,7 @@ function PatientTable({
       <table className="w-full">
         <thead className="bg-muted/30">
           <tr>
-            {["Patient", "Age", "Last Visit", "Diagnosis", "Status"].map((h) => (
+            {["Patient", "Age", "Last Visit", "Diagnosis", "Adherence", "Status"].map((h) => (
               <th
                 key={h}
                 className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
@@ -406,6 +406,9 @@ function PatientTable({
               </td>
               <td className="px-6 py-4 text-sm text-foreground">{p.last_diagnosis || "—"}</td>
               <td className="px-6 py-4">
+                <AdherenceCell patient={p} />
+              </td>
+              <td className="px-6 py-4">
                 <span
                   className={`inline-flex px-2 py-1 text-xs rounded-full ${STATUS_STYLE[p.status]}`}
                 >
@@ -421,6 +424,47 @@ function PatientTable({
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/**
+ * Adherence at a glance in the patient list.
+ *
+ * The point is triage: a doctor should see who is slipping without opening
+ * every patient in turn. Thresholds match AdherenceCard (80% is the
+ * conventional clinical bar for "adherent") so the list and the detail view
+ * never disagree about the same patient.
+ */
+function AdherenceCell({ patient }: { patient: DoctorPatientSummary }) {
+  const pct = patient.adherence_percent;
+
+  // Nothing dispensed in the window. Saying "0%" here would accuse a patient of
+  // missing medication that was never sent to them.
+  if (pct === null || patient.adherence_expected === 0) {
+    return (
+      <span className="text-xs text-muted-foreground" title="Nothing dispensed in this window">
+        —
+      </span>
+    );
+  }
+
+  const tone =
+    pct >= 80
+      ? "bg-accent/10 text-accent"
+      : pct >= 50
+        ? "bg-amber-100 text-amber-800"
+        : "bg-red-100 text-red-800";
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span className={`inline-flex w-fit px-2 py-1 text-xs rounded-full ${tone}`}>
+        {pct.toFixed(0)}%
+      </span>
+      <span className="text-[11px] text-muted-foreground">
+        {patient.adherence_taken}/{patient.adherence_expected} in{" "}
+        {patient.adherence_window_days}d
+      </span>
     </div>
   );
 }

@@ -334,6 +334,16 @@ export interface DoctorPatientSummary {
   last_diagnosis: string;
   follow_up_date: string | null;
   status: FollowUpStatus;
+
+  /**
+   * Adherence over the trailing window. null means nothing was dispensed in
+   * that window — materially different from 0, which means medication was sent
+   * and none of it was confirmed taken.
+   */
+  adherence_percent: number | null;
+  adherence_expected: number;
+  adherence_taken: number;
+  adherence_window_days: number;
 }
 
 export interface DoctorDashboardAPI {
