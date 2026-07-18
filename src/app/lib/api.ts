@@ -319,6 +319,78 @@ export async function confirmPayment(orderId: string): Promise<unknown> {
   return postJson(`/payments/${orderId}/confirm`, {});
 }
 
+// ── Clinical decision support ──
+//
+// Deterministic rules, evaluated server-side so the doctor app and the
+// pharmacist surface see identical warnings. Every finding carries the reason
+// it fired; nothing here decides a prescription.
+
+export type Severity = "Contraindicated" | "Major" | "Moderate" | "Minor";
+
+export interface ClinicalFinding {
+  kind: "interaction" | "contraindication" | "age_caution" | "duplicate_therapy";
+  severity: Severity;
+  drugs: string[];
+  message: string;
+  /** Why the rule exists. Never empty — a warning a doctor can't evaluate is noise. */
+  basis: string;
+  management: string;
+}
+
+export interface ClinicalSuggestion {
+  drug: string;
+  condition: string;
+  line: number;
+  basis: string;
+  notes: string;
+  warnings: ClinicalFinding[];
+  /** A rule says outright not to use this here. Shown, not hidden. */
+  blocked: boolean;
+}
+
+interface ClinicalBase {
+  age_used: number | null;
+  /** False when no date of birth is on file — the age checks did NOT run.
+   *  That is not the same as passing them. */
+  age_rules_applied: boolean;
+  disclaimer: string;
+}
+
+export interface RegimenCheckResult extends ClinicalBase {
+  findings: ClinicalFinding[];
+}
+
+export interface SuggestResult extends ClinicalBase {
+  suggestions: ClinicalSuggestion[];
+  findings: ClinicalFinding[];
+}
+
+export async function checkRegimen(body: {
+  drugs: string[];
+  patient_id?: string;
+  age?: number | null;
+  conditions?: string[];
+  allergies?: string[];
+}): Promise<RegimenCheckResult> {
+  return postJson<RegimenCheckResult>("/clinical/check", {
+    ...body,
+    age: body.age ?? undefined,
+  });
+}
+
+export async function suggestMedications(body: {
+  conditions: string[];
+  patient_id?: string;
+  age?: number | null;
+  current_drugs?: string[];
+  allergies?: string[];
+}): Promise<SuggestResult> {
+  return postJson<SuggestResult>("/clinical/suggest", {
+    ...body,
+    age: body.age ?? undefined,
+  });
+}
+
 // ── Adherence endpoints ──
 //
 // The doctor's non-monetary win (PRD §1a): visibility into whether their own

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ArrowLeft, Sparkles, Printer, X, Search, Plus, Trash2, Check, RefreshCw, Loader2 } from "lucide-react";
+import { ArrowLeft, ClipboardList, Printer, X, Search, Plus, Trash2, Check, RefreshCw, Loader2 } from "lucide-react";
+import { ClinicalChecks } from "./clinical-checks";
 import { toast } from "sonner";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
@@ -103,7 +104,10 @@ const getMedicationType = (drugName: string): string => {
   return "Tablet";
 };
 
-const DEFAULT_AI_REASONING = "AI-generated based on patient history";
+// Was "AI-generated based on patient history", displayed over a rule that
+// simply copied the patient's existing medications forward. The label now
+// states what the rule actually did.
+const CARRIED_FORWARD_BASIS = "Carried forward from active medications";
 
 // ── Smart dosage: every known drug MUST have a sensible default ──
 const smartDosageDefaults: Record<string, { morning: number; afternoon: number; night: number }> = {
@@ -240,12 +244,16 @@ function buildSuggestionsFromPatient(patient: SelectedPatientData): DrugSuggesti
   return result;
 }
 
-/** Default suggestions for the default patient (Rajesh Kumar: Diabetes + Hypertension) */
-const DEFAULT_SUGGESTIONS: DrugSuggestion[] = [
-  { drug: "Glimepiride", dosage: "1mg", type: "Tablet", morning: 1, afternoon: 0, night: 0 },
-  { drug: "Metformin", dosage: "500mg", type: "Tablet", morning: 1, afternoon: 0, night: 1 },
-  { drug: "Telmisartan", dosage: "40mg", type: "Tablet", morning: 1, afternoon: 0, night: 0 },
-];
+/**
+ * A prescription starts empty.
+ *
+ * This used to pre-fill Glimepiride + Metformin + Telmisartan — the demo
+ * patient's regimen — whenever no patient was selected. A doctor arriving
+ * without a selected patient would find three real drugs already on the
+ * prescription, one confirmation away from being dispensed to whoever the
+ * order was later attached to.
+ */
+const DEFAULT_SUGGESTIONS: DrugSuggestion[] = [];
 
 interface AIPrescriberProps {
   patient?: SelectedPatientData | null;
@@ -267,14 +275,23 @@ interface AIPrescriberProps {
 }
 
 export function AIPrescriber({ patient, onBack, onConfirm, onNavigate, hideSidebar }: AIPrescriberProps) {
-  const patientName = patient?.name ?? "Rajesh Kumar";
+  // No invented patient. These used to default to "Rajesh Kumar", 72kg,
+  // "Hypertension, Type 2 Diabetes" — a fictional history that then drove the
+  // safety rules and got printed on the prescription.
+  const patientName = patient?.name ?? "No patient selected";
   // No fallback age. This used to default to 58, which meant the screen showed
   // "Based on <name>'s Age (58)" for patients whose date of birth was never
   // recorded — fabricated clinical justification. null now means unknown, and
   // the UI says so instead of inventing a number.
   const patientAge = patient?.age ?? null;
-  const patientWeight = patient?.weight ?? 72;
-  const patientHistory = patient?.condition ?? "Hypertension, Type 2 Diabetes";
+  const patientWeight = patient?.weight ?? 0;
+  const patientHistory = patient?.condition ?? "";
+
+  // Drugs the patient is already on, used to label which prescription rows were
+  // carried forward rather than chosen fresh in this consultation.
+  const carriedForward = new Set(
+    (patient?.medications ?? []).map((m) => m.name.toLowerCase()),
+  );
 
   // Build suggestions from the patient's ACTUAL medication history
   const patientSuggestions = patient
@@ -484,21 +501,29 @@ export function AIPrescriber({ patient, onBack, onConfirm, onNavigate, hideSideb
                 </label>
                 <textarea
                   className="w-full h-32 px-4 py-3 border border-border rounded-lg bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-                  placeholder="Type symptoms (e.g. dizziness) for AI to suggest medications..."
+                  placeholder="Symptoms and diagnosis — recorded on the prescription and used to match safety rules"
                   value={symptomsText}
                   onChange={(e) => setSymptomsText(e.target.value)}
                 />
               </div>
             </Card>
 
-            {/* AI Suggestion */}
+            {/* Safety review of what the doctor has actually selected. */}
+            <div className="mb-6">
+              <ClinicalChecks
+                drugs={suggestions.map((s) => s.drug)}
+                age={patientAge}
+                conditions={patientHistory.split(/[,;]/).map((c) => c.trim()).filter(Boolean)}
+              />
+            </div>
+
             <Card className="border-2 border-primary shadow-lg">
               <div className="p-4 border-b border-border bg-primary/5">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                    <Sparkles className="h-4 w-4 text-primary-foreground" />
+                    <ClipboardList className="h-4 w-4 text-primary-foreground" />
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground">DOZ3 AI Suggestion</h3>
+                  <h3 className="text-lg font-semibold text-foreground">Prescription</h3>
                 </div>
               </div>
 
@@ -537,11 +562,17 @@ export function AIPrescriber({ patient, onBack, onConfirm, onNavigate, hideSideb
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
 
-                        <div className="flex items-center gap-2 mb-2 pr-10">
-                          <Badge variant="secondary" className="text-xs bg-primary/10 text-primary border-0 no-print">
-                            AI Reasoning: {DEFAULT_AI_REASONING}
-                          </Badge>
-                        </div>
+                        {/* Only rows that genuinely came from the patient's
+                            active medications carry this badge. It used to be
+                            on every row, so a drug the doctor had just added by
+                            hand claimed to have been carried forward. */}
+                        {carriedForward.has(suggestion.drug.toLowerCase()) ? (
+                          <div className="flex items-center gap-2 mb-2 pr-10">
+                            <Badge variant="secondary" className="text-xs bg-primary/10 text-primary border-0 no-print">
+                              {CARRIED_FORWARD_BASIS}
+                            </Badge>
+                          </div>
+                        ) : null}
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
@@ -604,7 +635,7 @@ export function AIPrescriber({ patient, onBack, onConfirm, onNavigate, hideSideb
                     }}
                   >
                     <RefreshCw className="h-4 w-4 mr-2" />
-                    Regenerate AI Suggestion
+                    Reload from active medications
                   </Button>
                 </div>
               </div>
