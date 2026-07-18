@@ -321,6 +321,39 @@ export async function confirmPayment(orderId: string): Promise<unknown> {
   return postJson(`/payments/${orderId}/confirm`, {});
 }
 
+// ── Doctor's own practice view ──
+
+export type FollowUpStatus = "Follow-up overdue" | "Follow-up scheduled" | "Stable";
+
+export interface DoctorPatientSummary {
+  patient_id: string;
+  full_name: string;
+  abha_address: string;
+  age: number | null;
+  last_visit_at: string;
+  last_diagnosis: string;
+  follow_up_date: string | null;
+  status: FollowUpStatus;
+}
+
+export interface DoctorDashboardAPI {
+  patients_this_month: number;
+  patients_last_month: number;
+  follow_ups_overdue: number;
+  follow_ups_upcoming: number;
+  total_patients: number;
+  recent_patients: DoctorPatientSummary[];
+}
+
+/** Scoped to the signed-in doctor: patients they have actually consulted. */
+export async function getDoctorDashboard(recentLimit = 6): Promise<DoctorDashboardAPI> {
+  return getJson<DoctorDashboardAPI>(`/doctor/dashboard?recent_limit=${recentLimit}`, 15_000);
+}
+
+export async function getMyPatients(): Promise<DoctorPatientSummary[]> {
+  return getJson<DoctorPatientSummary[]>("/doctor/patients", 15_000);
+}
+
 // ── Encounters (consultations) ──
 
 export interface EncounterPrescriptionSummary {
