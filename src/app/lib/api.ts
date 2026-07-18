@@ -280,6 +280,8 @@ export async function createPrescription(data: {
   valid_until: string;
   duration_days: number;
   doctor_id?: string;
+  /** The consultation this prescription came out of. */
+  encounter_id?: string;
   dose_schedules: Array<{
     medication_id: string;
     time_slot: "Morning" | "Noon" | "Night";
@@ -317,6 +319,97 @@ export async function createOrderFromPrescription(
 
 export async function confirmPayment(orderId: string): Promise<unknown> {
   return postJson(`/payments/${orderId}/confirm`, {});
+}
+
+// ── Encounters (consultations) ──
+
+export interface EncounterPrescriptionSummary {
+  id: string;
+  duration_days: number;
+  medications: string[];
+}
+
+export interface EncounterAPI {
+  id: string;
+  patient_id: string;
+  doctor_id: string | null;
+  occurred_at: string;
+  chief_complaint: string;
+  diagnosis: string;
+  notes: string;
+  follow_up_date: string | null;
+  systolic_mmhg: number | null;
+  diastolic_mmhg: number | null;
+  heart_rate_bpm: number | null;
+  spo2_percent: number | null;
+  blood_glucose_mgdl: number | null;
+  temperature_c: string | null;
+  weight_kg: string | null;
+  prescriptions: EncounterPrescriptionSummary[];
+}
+
+/**
+ * Most recent value per sign, each with its own timestamp.
+ *
+ * Resolved per sign rather than per visit: if the last consultation took a
+ * blood pressure but no weight, the most recent weight is still real — it just
+ * belongs to an earlier date, and must be labelled with that date.
+ */
+export interface LatestVitalsAPI {
+  systolic_mmhg: number | null;
+  diastolic_mmhg: number | null;
+  blood_pressure_recorded_at: string | null;
+  heart_rate_bpm: number | null;
+  heart_rate_recorded_at: string | null;
+  spo2_percent: number | null;
+  spo2_recorded_at: string | null;
+  blood_glucose_mgdl: number | null;
+  blood_glucose_recorded_at: string | null;
+  temperature_c: string | null;
+  temperature_recorded_at: string | null;
+  weight_kg: string | null;
+  weight_recorded_at: string | null;
+}
+
+export async function listEncounters(patientId: string): Promise<EncounterAPI[]> {
+  return getJson<EncounterAPI[]>(
+    `/patients/${encodeURIComponent(patientId)}/encounters`,
+    15_000,
+  );
+}
+
+export async function getLatestVitals(patientId: string): Promise<LatestVitalsAPI> {
+  return getJson<LatestVitalsAPI>(
+    `/patients/${encodeURIComponent(patientId)}/vitals/latest`,
+    15_000,
+  );
+}
+
+export interface EncounterCreateBody {
+  occurred_at?: string;
+  chief_complaint?: string;
+  diagnosis?: string;
+  notes?: string;
+  follow_up_date?: string | null;
+  systolic_mmhg?: number | null;
+  diastolic_mmhg?: number | null;
+  heart_rate_bpm?: number | null;
+  spo2_percent?: number | null;
+  blood_glucose_mgdl?: number | null;
+  temperature_c?: string | null;
+  weight_kg?: string | null;
+}
+
+export async function createEncounter(
+  patientId: string,
+  body: EncounterCreateBody,
+): Promise<EncounterAPI> {
+  const created = await postJson<EncounterAPI>(
+    `/patients/${encodeURIComponent(patientId)}/encounters`,
+    body,
+  );
+  invalidateCache(`/patients/${patientId}`);
+  return created;
 }
 
 // ── Clinical decision support ──

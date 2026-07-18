@@ -30,6 +30,7 @@ import { PATIENT_RECORDS } from "../data/patientRecords";
 import type { PatientRecord } from "../types/patient";
 import { listPatients, createOrUpsertPatient, type PatientAPI } from "../lib/api";
 import { AdherenceCard } from "./adherence-card";
+import { VisitHistory } from "./visit-history";
 
 type View = "list" | "detail";
 
@@ -331,6 +332,10 @@ function PatientDetailView({
   onBack: () => void;
   onStartConsultation?: (p: SelectedPatientData) => void;
 }) {
+  // Present only for patients that exist server-side; device-local demo
+  // records fall back to their fixture vitals and timeline.
+  const backendId = (patient as PatientRecord & { _backendId?: string })._backendId;
+
   return (
     <div className="flex h-full bg-background">
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -396,25 +401,33 @@ function PatientDetailView({
               </div>
             </Card>
 
-            {/* Vitals */}
-            <Card className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-primary" /> Current Vitals
-                </h4>
-                <span className="text-xs text-muted-foreground">
-                  Recorded: {new Date(patient.vitals.recordedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <VitalCard icon={Heart} label="Blood Pressure" value={patient.vitals.bloodPressure} color="text-red-500" bgColor="bg-red-50" />
-                <VitalCard icon={Droplet} label="Blood Sugar" value={patient.vitals.bloodSugar} color="text-blue-500" bgColor="bg-blue-50" />
-                <VitalCard icon={Activity} label="Heart Rate" value={patient.vitals.heartRate} color="text-emerald-500" bgColor="bg-emerald-50" />
-                <VitalCard icon={Thermometer} label="Temperature" value={patient.vitals.temperature} color="text-orange-500" bgColor="bg-orange-50" />
-                <VitalCard icon={Weight} label="Weight" value={`${patient.vitals.weight} kg`} color="text-amber-500" bgColor="bg-amber-50" />
-                <VitalCard icon={Activity} label="SpO2" value={patient.vitals.spo2} color="text-violet-500" bgColor="bg-violet-50" />
-              </div>
-            </Card>
+            {/* Vitals + visit history come from recorded consultations for any
+                patient that exists server-side. Device-local demo records keep
+                their fixture vitals below, since they have no encounters. */}
+            {backendId ? (
+              <VisitHistory patientId={backendId} only="vitals" />
+            ) : (
+              <Card className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-primary" /> Current Vitals
+                  </h4>
+                  <span className="text-xs text-muted-foreground">
+                    {patient.vitals.recordedAt
+                      ? `Recorded: ${new Date(patient.vitals.recordedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
+                      : "Not recorded"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <VitalCard icon={Heart} label="Blood Pressure" value={patient.vitals.bloodPressure} color="text-red-500" bgColor="bg-red-50" />
+                  <VitalCard icon={Droplet} label="Blood Sugar" value={patient.vitals.bloodSugar} color="text-blue-500" bgColor="bg-blue-50" />
+                  <VitalCard icon={Activity} label="Heart Rate" value={patient.vitals.heartRate} color="text-emerald-500" bgColor="bg-emerald-50" />
+                  <VitalCard icon={Thermometer} label="Temperature" value={patient.vitals.temperature} color="text-orange-500" bgColor="bg-orange-50" />
+                  <VitalCard icon={Weight} label="Weight" value={`${patient.vitals.weight} kg`} color="text-amber-500" bgColor="bg-amber-50" />
+                  <VitalCard icon={Activity} label="SpO2" value={patient.vitals.spo2} color="text-violet-500" bgColor="bg-violet-50" />
+                </div>
+              </Card>
+            )}
 
             {/* Adherence — real server-side data, keyed on the backend patient
                 id. Records added only on this device have no _backendId, and
@@ -473,6 +486,10 @@ function PatientDetailView({
 
           {/* Right: Visit History */}
           <div className="w-1/2 overflow-y-auto p-6">
+            {backendId ? (
+              <VisitHistory patientId={backendId} only="history" />
+            ) : (
+              <>
             <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
               <Clock className="w-4 h-4 text-primary" /> Visit History ({patient.visits.length})
             </h3>
@@ -533,6 +550,8 @@ function PatientDetailView({
                 ))}
               </div>
             </div>
+              </>
+            )}
           </div>
         </div>
       </div>

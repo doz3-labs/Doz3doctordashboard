@@ -26,6 +26,7 @@ import {
   postJson,
   createOrUpsertPatient,
   getAllMedications,
+  createEncounter,
   createPrescription,
   createOrderFromPrescription,
   confirmPayment,
@@ -162,8 +163,24 @@ function DoctorDashboard() {
         if (med.night > 0) dose_schedules.push({ medication_id, time_slot: "Night", quantity: med.night });
       }
 
+      // Record the consultation this prescription came out of, so the patient
+      // gains a real visit history rather than "Visit History (0)". Best effort:
+      // a failure here must not lose the prescription, which is the thing the
+      // patient actually needs.
+      let encounterId: string | undefined;
+      try {
+        const encounter = await createEncounter(patientId, {
+          chief_complaint: data.symptoms || "",
+          diagnosis: data.patientHistory || "",
+        });
+        encounterId = encounter.id;
+      } catch {
+        // Fall through and prescribe without an encounter link.
+      }
+
       const prescription = await createPrescription({
         patient_id: patientId,
+        encounter_id: encounterId,
         abdm_record_id: `abdm-demo-${Date.now()}`,
         valid_until: validUntil,
         duration_days: durationDays,
