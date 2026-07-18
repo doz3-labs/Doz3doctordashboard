@@ -4,6 +4,9 @@ import { DEFAULT_DOCTOR_PROFILE } from "../types/doctor";
 import { loginDoctor, logoutDoctor, getToken, setToken } from "../lib/api";
 
 interface AuthContextType extends AuthState {
+  /** Move to the phone-entry step. Use this to *start* sign-in. */
+  beginLogin: () => void;
+  /** Submit a phone number and advance to OTP entry. */
   login: (phone: string) => void;
   verifyOtp: (otp: string) => Promise<boolean>;
   completeProfile: (profile: DoctorProfile) => void;
@@ -33,8 +36,16 @@ function loadPersistedAuth(): AuthState {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      const parsed = JSON.parse(stored);
-      if (parsed.isAuthenticated && getToken()) return parsed;
+      const parsed = JSON.parse(stored) as AuthState;
+      if (parsed.isAuthenticated && getToken()) {
+        // `pendingPhone` is deliberately not persisted, so a session restored
+        // mid-OTP has no number to verify against and every attempt 403s.
+        // Send that case back to phone entry instead of stranding the user.
+        if (parsed.onboardingStep === "otp") {
+          return { ...parsed, onboardingStep: "login" };
+        }
+        return parsed;
+      }
     }
   } catch { /* ignore */ }
 
@@ -67,13 +78,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const beginLogin = useCallback(() => {
+    setPendingPhone("");
+    setLoginError(null);
+    updateState({ onboardingStep: "login" });
+  }, [updateState]);
+
   const login = useCallback(
     (phone: string) => {
+      // Guard: advancing to OTP without a phone leaves the user on a form that
+      // can only ever 403, with no way forward. The splash screen used to call
+      // login("") for its "Get Started" button and skipped phone entry entirely.
+      if (!phone) {
+        beginLogin();
+        return;
+      }
       setPendingPhone(phone);
       setLoginError(null);
       updateState({ onboardingStep: "otp" });
     },
-    [updateState]
+    [updateState, beginLogin]
   );
 
   const verifyOtp = useCallback(
@@ -167,6 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         ...authState,
+        beginLogin,
         login,
         verifyOtp,
         completeProfile,

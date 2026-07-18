@@ -1,20 +1,11 @@
 import { useState } from "react";
-import { User, QrCode, TrendingUp, Search, Filter, Building2, Smartphone, CreditCard, ArrowDownToLine, X, Calendar, Phone, Mail, Activity, Heart, Droplet, Weight, FileText, Clock, Eye, CheckCircle2 } from "lucide-react";
+import { User, QrCode, Search, Filter, X, Calendar, Phone, Mail, Activity, Heart, Droplet, Weight, FileText, Clock, Eye, CheckCircle2 } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { LineChart, Line, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
+import { useAuth } from "../context/AuthContext";
 import type { SelectedPatientData } from "./patient-profile";
-
-const earningsTrendData = [
-  { value: 38000 },
-  { value: 40000 },
-  { value: 39500 },
-  { value: 42000 },
-  { value: 43500 },
-  { value: 45200 },
-];
 
 const recentPatients = [
   {
@@ -206,58 +197,7 @@ const recentPatients = [
   },
 ];
 
-const transactions = [
-  {
-    id: 1,
-    date: "Feb 4, 2026",
-    patient: "Rajesh Kumar",
-    amount: 450,
-    status: "Pending",
-    method: "-",
-  },
-  {
-    id: 2,
-    date: "Feb 3, 2026",
-    patient: "Priya Sharma",
-    amount: 350,
-    status: "Completed",
-    method: "UPI",
-  },
-  {
-    id: 3,
-    date: "Feb 2, 2026",
-    patient: "Anil Verma",
-    amount: 500,
-    status: "Completed",
-    method: "Bank Transfer",
-  },
-  {
-    id: 4,
-    date: "Feb 1, 2026",
-    patient: "Meera Patel",
-    amount: 400,
-    status: "Completed",
-    method: "UPI",
-  },
-  {
-    id: 5,
-    date: "Jan 31, 2026",
-    patient: "Suresh Reddy",
-    amount: 450,
-    status: "Completed",
-    method: "Bank Transfer",
-  },
-  {
-    id: 6,
-    date: "Jan 30, 2026",
-    patient: "Kavita Singh",
-    amount: 300,
-    status: "Completed",
-    method: "UPI",
-  },
-];
-
-type ViewType = "dashboard" | "patients" | "earnings";
+type ViewType = "dashboard" | "patients";
 
 interface DashboardProps {
   onScanPatient: () => void;
@@ -270,13 +210,13 @@ interface DashboardProps {
 }
 
 export function Dashboard({ onScanPatient, onNavigate, onNavigateToSettings, onViewPatientProfile, activeSidebarView = "dashboard", setActiveSidebarView, hideSidebar }: DashboardProps) {
+  const { doctor } = useAuth();
   const activeView = activeSidebarView;
   const setActiveView = setActiveSidebarView ?? (() => {});
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<typeof recentPatients[0] | null>(null);
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"all" | "follow-up" | "stable">("all");
-  const [selectedWithdrawalMethod, setSelectedWithdrawalMethod] = useState<"bank" | "upi" | "card">("bank");
 
   const handlePatientClick = (patient: typeof recentPatients[0]) => {
     setSelectedPatient(patient);
@@ -303,7 +243,6 @@ export function Dashboard({ onScanPatient, onNavigate, onNavigateToSettings, onV
           <h2 className="text-xl text-foreground">
             {activeView === "dashboard" && "Dashboard"}
             {activeView === "patients" && "Patients"}
-            {activeView === "earnings" && "Earnings"}
           </h2>
           <div className="flex items-center gap-4">
             <Button
@@ -320,7 +259,11 @@ export function Dashboard({ onScanPatient, onNavigate, onNavigateToSettings, onV
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                 <User className="h-5 w-5 text-primary" />
               </div>
-              <span className="text-sm text-foreground font-medium">Dr. Sharma</span>
+              {/* Was hardcoded "Dr. Sharma" — it showed that name no matter
+                  who was actually signed in. */}
+              <span className="text-sm text-foreground font-medium">
+                {doctor?.fullName ?? "Doctor"}
+              </span>
             </button>
           </div>
         </header>
@@ -328,37 +271,11 @@ export function Dashboard({ onScanPatient, onNavigate, onNavigateToSettings, onV
         {/* Dashboard View */}
         {activeView === "dashboard" && (
           <div className="flex-1 overflow-auto p-8">
-            <div className="grid grid-cols-3 gap-6 mb-8">
-              {/* Earnings Widget */}
-              <Card
-                className="col-span-1 p-6 border border-border shadow-sm cursor-pointer hover:shadow-md hover:border-primary/30 transition-all"
-                onClick={() => setActiveView("earnings")}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Total Earnings</p>
-                    <h3 className="text-3xl font-semibold text-foreground">₹45,200</h3>
-                  </div>
-                  <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
-                    <TrendingUp className="h-5 w-5 text-accent" />
-                  </div>
-                </div>
-                <div className="h-16">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={earningsTrendData}>
-                      <Line
-                        type="monotone"
-                        dataKey="value"
-                        stroke="#10B981"
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-                <p className="text-xs text-accent mt-2">+12.5% from last month</p>
-              </Card>
-
+            {/* The earnings widget that stood here was removed with the rest of
+                the monetary model (PRD §1a). The doctor's win is adherence
+                visibility — that surface is real and lives on Patient Records,
+                where the backend patient ids are available. */}
+            <div className="grid grid-cols-2 gap-6 mb-8">
               {/* Stats Cards */}
               <Card
                 className="p-6 border border-border shadow-sm cursor-pointer hover:shadow-md hover:border-primary/30 transition-all"
@@ -522,187 +439,6 @@ export function Dashboard({ onScanPatient, onNavigate, onNavigateToSettings, onV
                             }`}
                           >
                             {patient.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {/* Earnings View */}
-        {activeView === "earnings" && (
-          <div className="flex-1 overflow-auto p-8">
-            {/* Earnings Summary */}
-            <div className="grid grid-cols-3 gap-6 mb-8">
-              <Card className="p-6 border border-border shadow-sm">
-                <p className="text-sm text-muted-foreground mb-1">Total Earnings</p>
-                <h3 className="text-3xl font-semibold text-foreground">₹45,200</h3>
-                <p className="text-xs text-accent mt-2">+12.5% from last month</p>
-              </Card>
-
-              <Card className="p-6 border border-border shadow-sm">
-                <p className="text-sm text-muted-foreground mb-1">Pending Payments</p>
-                <h3 className="text-3xl font-semibold text-amber-600">₹450</h3>
-                <p className="text-xs text-muted-foreground mt-2">1 transaction pending</p>
-              </Card>
-
-              <Card className="p-6 border border-border shadow-sm">
-                <p className="text-sm text-muted-foreground mb-1">Available to Withdraw</p>
-                <h3 className="text-3xl font-semibold text-foreground">₹44,750</h3>
-                <p className="text-xs text-muted-foreground mt-2">Ready for withdrawal</p>
-              </Card>
-            </div>
-
-            {/* Withdrawal Methods */}
-            <Card className="mb-8 border border-border shadow-sm">
-              <div className="p-6 border-b border-border">
-                <h3 className="text-lg font-semibold text-foreground">Withdrawal Methods</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Choose your preferred method to withdraw earnings
-                </p>
-              </div>
-              <div className="p-6">
-                <div className="grid grid-cols-3 gap-4">
-                  <button
-                    onClick={() => { setSelectedWithdrawalMethod("bank"); toast.success("Bank Transfer selected"); }}
-                    className={`border-2 rounded-lg p-6 transition-colors ${
-                      selectedWithdrawalMethod === "bank"
-                        ? "border-primary bg-primary/5 hover:bg-primary/10"
-                        : "border-border hover:bg-muted/20"
-                    }`}
-                  >
-                    <div className="flex flex-col items-center text-center">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${
-                        selectedWithdrawalMethod === "bank" ? "bg-primary/10" : "bg-muted"
-                      }`}>
-                        <Building2 className={`h-6 w-6 ${selectedWithdrawalMethod === "bank" ? "text-primary" : "text-muted-foreground"}`} />
-                      </div>
-                      <h4 className="text-sm font-semibold text-foreground mb-1">Bank Transfer</h4>
-                      <p className="text-xs text-muted-foreground">Direct to your bank account</p>
-                      <p className={`text-xs mt-2 font-medium ${selectedWithdrawalMethod === "bank" ? "text-primary" : "text-muted-foreground"}`}>
-                        {selectedWithdrawalMethod === "bank" ? "✓ Selected" : "Select"}
-                      </p>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => { setSelectedWithdrawalMethod("upi"); toast.success("UPI selected"); }}
-                    className={`border-2 rounded-lg p-6 transition-colors ${
-                      selectedWithdrawalMethod === "upi"
-                        ? "border-primary bg-primary/5 hover:bg-primary/10"
-                        : "border-border hover:bg-muted/20"
-                    }`}
-                  >
-                    <div className="flex flex-col items-center text-center">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${
-                        selectedWithdrawalMethod === "upi" ? "bg-primary/10" : "bg-muted"
-                      }`}>
-                        <Smartphone className={`h-6 w-6 ${selectedWithdrawalMethod === "upi" ? "text-primary" : "text-muted-foreground"}`} />
-                      </div>
-                      <h4 className="text-sm font-semibold text-foreground mb-1">UPI</h4>
-                      <p className="text-xs text-muted-foreground">Instant transfer via UPI</p>
-                      <p className={`text-xs mt-2 font-medium ${selectedWithdrawalMethod === "upi" ? "text-primary" : "text-muted-foreground"}`}>
-                        {selectedWithdrawalMethod === "upi" ? "✓ Selected" : "Select"}
-                      </p>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => { setSelectedWithdrawalMethod("card"); toast.success("Card selected"); }}
-                    className={`border-2 rounded-lg p-6 transition-colors ${
-                      selectedWithdrawalMethod === "card"
-                        ? "border-primary bg-primary/5 hover:bg-primary/10"
-                        : "border-border hover:bg-muted/20"
-                    }`}
-                  >
-                    <div className="flex flex-col items-center text-center">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${
-                        selectedWithdrawalMethod === "card" ? "bg-primary/10" : "bg-muted"
-                      }`}>
-                        <CreditCard className={`h-6 w-6 ${selectedWithdrawalMethod === "card" ? "text-primary" : "text-muted-foreground"}`} />
-                      </div>
-                      <h4 className="text-sm font-semibold text-foreground mb-1">Card</h4>
-                      <p className="text-xs text-muted-foreground">Transfer to debit card</p>
-                      <p className={`text-xs mt-2 font-medium ${selectedWithdrawalMethod === "card" ? "text-primary" : "text-muted-foreground"}`}>
-                        {selectedWithdrawalMethod === "card" ? "✓ Selected" : "Select"}
-                      </p>
-                    </div>
-                  </button>
-                </div>
-
-                <div className="mt-6 flex items-center gap-4">
-                  <Button
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                    onClick={() => toast.success("Withdrawal of ₹44,750 initiated via " + (selectedWithdrawalMethod === "bank" ? "Bank Transfer" : selectedWithdrawalMethod === "upi" ? "UPI" : "Card") + ". Processing in 2-3 business days.", { icon: <CheckCircle2 className="w-5 h-5" /> })}
-                  >
-                    <ArrowDownToLine className="h-4 w-4 mr-2" />
-                    Withdraw ₹44,750
-                  </Button>
-                  <Button variant="outline" onClick={() => toast.info("Payment method settings will be available soon.")}>
-                    Update Payment Method
-                  </Button>
-                </div>
-              </div>
-            </Card>
-
-            {/* Transaction History */}
-            <Card className="border border-border shadow-sm">
-              <div className="p-6 border-b border-border">
-                <h3 className="text-lg font-semibold text-foreground">Transaction History</h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-muted/30">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        Patient
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        Amount
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        Method
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-card divide-y divide-border">
-                    {transactions.map((transaction) => (
-                      <tr key={transaction.id} className="hover:bg-muted/20">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-muted-foreground">{transaction.date}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-foreground">
-                            {transaction.patient}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-semibold text-foreground">
-                            ₹{transaction.amount}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-muted-foreground">{transaction.method}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                              transaction.status === "Pending"
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-accent/10 text-accent"
-                            }`}
-                          >
-                            {transaction.status}
                           </span>
                         </td>
                       </tr>

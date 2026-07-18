@@ -5,7 +5,7 @@ import { Input } from "../ui/input";
 import { useAuth } from "../../context/AuthContext";
 
 export function LoginScreen() {
-  const { onboardingStep, login, verifyOtp, skipToApp, loginError } = useAuth();
+  const { onboardingStep, beginLogin, login, verifyOtp, skipToApp, loginError } = useAuth();
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
@@ -95,7 +95,7 @@ export function LoginScreen() {
           ) : (
             <>
               <button
-                onClick={() => login("")}
+                onClick={beginLogin}
                 className="flex items-center gap-1.5 text-xl text-muted-foreground hover:text-foreground mb-4 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />

@@ -3,7 +3,6 @@ import { Toaster, toast } from "sonner";
 import {
   LayoutDashboard,
   Users,
-  IndianRupee,
   Pill,
   FileText,
   Settings as SettingsIcon,
@@ -42,14 +41,13 @@ type Screen =
   | "patient-records"
   | "settings";
 
-type SidebarView = "dashboard" | "patients" | "earnings" | "medicines" | "records" | "settings";
+type SidebarView = "dashboard" | "patients" | "medicines" | "records" | "settings";
 
 const sidebarNav = [
   { id: "dashboard" as SidebarView, screen: "dashboard" as Screen, label: "Dashboard", icon: LayoutDashboard },
   { id: "patients" as SidebarView, screen: "dashboard" as Screen, label: "Patients", icon: Users },
   { id: "records" as SidebarView, screen: "patient-records" as Screen, label: "Patient Records", icon: FileText },
   { id: "medicines" as SidebarView, screen: "medicine-catalog" as Screen, label: "Medicine Database", icon: Pill },
-  { id: "earnings" as SidebarView, screen: "dashboard" as Screen, label: "Earnings", icon: IndianRupee },
   { id: "settings" as SidebarView, screen: "settings" as Screen, label: "Settings", icon: SettingsIcon },
 ];
 
@@ -264,7 +262,7 @@ function DoctorDashboard() {
               onNavigate={(s) => handleNavigate(s as Screen)}
               onNavigateToSettings={() => handleNavigate("settings")}
               onViewPatientProfile={handleViewPatientProfile}
-              activeSidebarView={activeSidebarView as "dashboard" | "patients" | "earnings"}
+              activeSidebarView={activeSidebarView as "dashboard" | "patients"}
               setActiveSidebarView={(v) => setActiveSidebarView(v as SidebarView)}
               hideSidebar
             />

@@ -15,11 +15,12 @@ export interface Medicine {
   contraindications: string[];
   interactions: string[];
   usageNotes: string;
-  priceRange: string; // e.g. "₹5-15 per strip" (legacy, unused in UI)
-  /** Doctor's incentive per unit (strip/sachet/vial/etc) */
-  incentivePerUnit: number;
-  /** Unit type for the incentive display */
-  unitType: "strip" | "sachet" | "vial" | "pen" | "tube" | "bottle" | "inhaler" | "patch" | "injection";
+  // NOTE: `priceRange`, `incentivePerUnit` and `unitType` were removed here.
+  // A per-prescription incentive to a prescribing doctor is very likely caught
+  // by MCI Regulation 6.4.1 (see docs/doctor-compensation-findings.md), and the
+  // product decision (PRD §1a) is that the doctor's win is non-monetary:
+  // adherence visibility, not a payment. The fields were written in the data
+  // file but read by no component, so nothing rendered them.
   inStock: boolean;
 }
 

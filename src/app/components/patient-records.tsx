@@ -29,6 +29,7 @@ import { Input } from "./ui/input";
 import { PATIENT_RECORDS } from "../data/patientRecords";
 import type { PatientRecord } from "../types/patient";
 import { listPatients, createOrUpsertPatient, type PatientAPI } from "../lib/api";
+import { AdherenceCard } from "./adherence-card";
 
 type View = "list" | "detail";
 
@@ -408,6 +409,14 @@ function PatientDetailView({
                 <VitalCard icon={Activity} label="SpO2" value={patient.vitals.spo2} color="text-violet-500" bgColor="bg-violet-50" />
               </div>
             </Card>
+
+            {/* Adherence — real server-side data, keyed on the backend patient
+                id. Records added only on this device have no _backendId, and
+                the card says so rather than implying zero adherence. */}
+            <AdherenceCard
+              patientId={(patient as PatientRecord & { _backendId?: string })._backendId}
+              patientName={patient.name}
+            />
 
             {/* Allergies & Conditions */}
             <div className="grid grid-cols-2 gap-3">

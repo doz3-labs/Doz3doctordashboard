@@ -3,7 +3,7 @@ import { Button } from "../ui/button";
 import { useAuth } from "../../context/AuthContext";
 
 export function SplashScreen() {
-  const { login, skipToApp } = useAuth();
+  const { beginLogin, skipToApp } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a2e4f] via-[#0F4C81] to-[#1a6bb5] flex flex-col items-center justify-center p-6 relative overflow-hidden">
@@ -30,7 +30,7 @@ export function SplashScreen() {
 
         {/* CTA Buttons */}
         <Button
-          onClick={() => login("")}
+          onClick={beginLogin}
           className="w-full bg-white text-[#0F4C81] hover:bg-blue-50 font-semibold text-base py-6 rounded-xl shadow-lg shadow-black/20 mb-3"
         >
           Get Started

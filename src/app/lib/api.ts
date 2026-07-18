@@ -280,3 +280,62 @@ export async function createOrderFromPrescription(
 export async function confirmPayment(orderId: string): Promise<unknown> {
   return postJson(`/payments/${orderId}/confirm`, {});
 }
+
+// ── Adherence endpoints ──
+//
+// The doctor's non-monetary win (PRD §1a): visibility into whether their own
+// patients are actually taking what was prescribed. A doctor token reaches any
+// patient's adherence — require_patient_access treats staff as authorized.
+
+export interface AdherenceSummaryAPI {
+  patient_id: string;
+  start: string;
+  end: string;
+  /** Doses the schedule expected over the window. */
+  expected: number;
+  taken: number;
+  missed: number;
+  /** null when nothing was expected — distinct from 0%. */
+  adherence_percent: number | null;
+}
+
+export interface DoseTakenAPI {
+  id: string;
+  patient_id: string;
+  scheduled_date: string;
+  time_slot: "Morning" | "Noon" | "Night";
+  taken_at: string;
+  source: string;
+}
+
+/** ISO date (YYYY-MM-DD) `days` before today, or today when days = 0. */
+export function isoDaysAgo(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+export async function getAdherenceSummary(
+  patientId: string,
+  start: string,
+  end: string,
+): Promise<AdherenceSummaryAPI> {
+  const qs = `?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+  // Short TTL: a patient marking a dose should show up promptly.
+  return getJson<AdherenceSummaryAPI>(
+    `/patients/${encodeURIComponent(patientId)}/adherence/summary${qs}`,
+    15_000,
+  );
+}
+
+export async function getAdherenceEvents(
+  patientId: string,
+  start: string,
+  end: string,
+): Promise<DoseTakenAPI[]> {
+  const qs = `?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+  return getJson<DoseTakenAPI[]>(
+    `/patients/${encodeURIComponent(patientId)}/adherence${qs}`,
+    15_000,
+  );
+}
